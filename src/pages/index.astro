@@ -1,0 +1,12 @@
+---
+import Layout from "~/layouts/Layout.astro";
+
+import App from "~/components/App";
+
+const title = "White noise spectrum plotter";
+const description = "White noise spectrum plotter";
+---
+
+<Layout {title} {description}>
+  <App client:load />
+</Layout>
