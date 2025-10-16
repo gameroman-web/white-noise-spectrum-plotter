@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
-import { FFT } from "~/lib/fft";
 import { Chart, registerables } from "chart.js/auto";
+
+import { transform as fft } from "fft.ts/nayuki";
 
 Chart.register(...registerables);
 
@@ -53,25 +54,16 @@ function App() {
     );
 
     const N = signal.length;
-    if (N === 0 || (N & (N - 1)) !== 0) {
-      throw new Error("Skip if not power of 2"); // Skip if not power of 2
-    }
 
-    // Compute FFT using new FFT class
-    const fft = new FFT(N);
-    const complexData = fft.createComplexArray();
-    for (let i = 0; i < N; i++) {
-      complexData[i * 2] = signal[i]![0]; // Real part
-      complexData[i * 2 + 1] = signal[i]![1]; // Imag part
-    }
-    const out = fft.createComplexArray();
-    fft.transform(out, complexData);
+    // Prepare input arrays for FFT
+    const realInput = signal.map((s) => s[0]);
+    const imagInput = signal.map((s) => s[1]);
+
+    // Compute FFT using nayuki
+    fft(realInput, imagInput);
 
     // Convert to array of [re, im] pairs
-    const phasors: ReImPair[] = [];
-    for (let i = 0; i < out.length; i += 2) {
-      phasors.push([out[i]!, out[i + 1]!]);
-    }
+    const phasors: ReImPair[] = realInput.map((re, i) => [re, imagInput[i]!]);
 
     const phasors_shifted = fftshift(phasors);
 

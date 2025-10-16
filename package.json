@@ -11,14 +11,15 @@
   "dependencies": {
     "@astrojs/solid-js": "^5.1.1",
     "@tailwindcss/vite": "^4.1.14",
-    "astro": "^5.14.4",
-    "chart.js": "^4.5.0",
+    "astro": "^5.14.5",
+    "chart.js": "^4.5.1",
+    "fft.ts": "^0.0.2",
     "solid-js": "^1.9.9",
     "tailwindcss": "^4.1.14"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "^5.9.3",
-    "wrangler": "^4.42.2"
+    "wrangler": "^4.43.0"
   }
 }
