@@ -3,78 +3,58 @@ import { Chart, registerables } from "chart.js/auto";
 
 import { transform as fft } from "fft.ts/nayuki";
 
+import { dataSchema, type ReImPair } from "~/schemas";
+import { fftfreq, fftshift } from "~/lib/fft-utils";
+
 Chart.register(...registerables);
 
-type RealPart = number & {};
-type ImaginaryPart = number & {};
-type ReImPair = [RealPart, ImaginaryPart];
-type DataRow = [...ReImPair, ...ReImPair];
+function processData(rows: ReImPair[][], pairIndex: number) {
+  const signal: ReImPair[] = rows.map((row) => row[pairIndex]!);
 
-function fftshift<T extends number | ReImPair>(arr: T[]): T[] {
-  const n = arr.length;
-  const half = Math.floor(n / 2);
-  return [...arr.slice(half), ...arr.slice(0, half)];
-}
+  // Prepare input arrays for FFT
+  const realInput = signal.map((s) => s[0]);
+  const imagInput = signal.map((s) => s[1]);
 
-function fftfreq(n: number, frequency: number): number[] {
-  return Array.from({ length: n }, (_, i) => i / (n * (1 / frequency)));
+  // Compute FFT using nayuki
+  fft(realInput, imagInput);
+
+  // Convert to array of [re, im] pairs
+  const phasors: ReImPair[] = realInput.map((re, i) => [re, imagInput[i]!]);
+
+  const phasors_shifted = fftshift(phasors);
+
+  // Magnitude in dB
+  const magnitude = phasors_shifted.map((p) =>
+    Math.sqrt(p[0] ** 2 + p[1] ** 2)
+  );
+  const magnitude_db = magnitude.map((m) => 20 * Math.log10(m + 1e-12));
+  const signalLength = signal.length;
+  return { magnitude_db, signalLength };
 }
 
 function App() {
   const [fileContent, setFileContent] = createSignal("");
   const [frequencyInput, setFrequencyInput] = createSignal("1");
-  const [frequency, setFrequency] = createSignal(1.0);
-  const [type, setType] = createSignal(0);
+  const [getFrequency, setFrequency] = createSignal(1.0);
+  const [getPairIndex, setPairIndex] = createSignal(0);
   const [chart, setChart] = createSignal<Chart<"line", number[], number>>();
   const [canvasEl, setCanvasEl] = createSignal<HTMLCanvasElement>();
 
   const plot = () => {
     const content = fileContent();
+    const pairIndex = getPairIndex();
+    const frequency = getFrequency();
+
     if (!content) return;
 
-    const lines = content
-      .trim()
-      .split("\n")
-      .filter((line) => line.trim());
-    const data: [DataRow, ...DataRow[]] = lines
-      .map((line) => line.trim().split(/\s+/).map(Number).filter(isFinite))
-      .filter((row) => row.length > 0);
+    const { rows, numPairs } = dataSchema.parse(content);
 
-    if (data.length === 0) throw new Error();
+    if (numPairs <= pairIndex) throw new Error();
 
-    // Assume all rows have same number of columns
-    const numCols = data[0].length;
-    if (numCols < 2) throw new Error();
-
-    const selectedCols = type() === 0 ? ([0, 1] as const) : ([2, 3] as const);
-    if (numCols <= Math.max(...selectedCols)) throw new Error();
-
-    const signal = data.map(
-      (row) => [row[selectedCols[0]], row[selectedCols[1]]] as const
-    );
-
-    const N = signal.length;
-
-    // Prepare input arrays for FFT
-    const realInput = signal.map((s) => s[0]);
-    const imagInput = signal.map((s) => s[1]);
-
-    // Compute FFT using nayuki
-    fft(realInput, imagInput);
-
-    // Convert to array of [re, im] pairs
-    const phasors: ReImPair[] = realInput.map((re, i) => [re, imagInput[i]!]);
-
-    const phasors_shifted = fftshift(phasors);
-
-    // Magnitude in dB
-    const magnitude = phasors_shifted.map((p) =>
-      Math.sqrt(p[0] ** 2 + p[1] ** 2)
-    );
-    const magnitude_db = magnitude.map((m) => 20 * Math.log10(m + 1e-12));
+    const { magnitude_db, signalLength } = processData(rows, pairIndex);
 
     // Frequencies
-    const freqs = fftfreq(N, frequency());
+    const freqs = fftfreq(signalLength, frequency);
     const freqs_shifted = fftshift(freqs);
 
     // Update chart
@@ -169,8 +149,8 @@ function App() {
             </label>
             <select
               id="type"
-              value={type()}
-              onChange={(e) => setType(parseInt(e.target.value))}
+              value={getPairIndex()}
+              onChange={(e) => setPairIndex(parseInt(e.target.value))}
               class="border rounded px-2 py-1"
             >
               <option value={0}>0</option>
