@@ -34,10 +34,10 @@ function processData(rows: ReImPair[][], pairIndex: number) {
 
 function App() {
   const [fileContent, setFileContent] = createSignal("");
-  const [frequencyInput, setFrequencyInput] = createSignal("1");
+  const [frequencyInput] = createSignal("1");
   const [getFrequency, setFrequency] = createSignal(1.0);
   const [getPairIndex, setPairIndex] = createSignal(0);
-  const [chart, setChart] = createSignal<Chart<"line", number[], number>>();
+  const [getChart, setChart] = createSignal<Chart<"line", number[], number>>();
   const [canvasEl, setCanvasEl] = createSignal<HTMLCanvasElement>();
 
   const plot = () => {
@@ -60,41 +60,48 @@ function App() {
     // Update chart
     const ctx = canvasEl();
 
-    if (ctx && chart()) {
-      chart()!.destroy();
+    if (!ctx) return;
+
+    const chart = getChart();
+
+    if (chart) {
+      // Update existing chart data
+      chart.data.labels = freqs_shifted;
+      chart.data.datasets[0]!.data = magnitude_db;
+      chart.update("none"); // 'none' skips animation for instant redraw
+      return;
     }
 
-    if (ctx) {
-      const newChart = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: freqs_shifted,
-          datasets: [
-            {
-              label: "Magnitude (dB)",
-              data: magnitude_db,
-              borderColor: "blue",
-              backgroundColor: "blue",
-              fill: false,
-              pointRadius: 0,
-              borderWidth: 1,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          scales: {
-            x: { title: { display: true, text: "Frequency (Hz)" } },
-            y: { title: { display: true, text: "Amplitude (dB)" } },
+    // Create new chart on first run
+    const newChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: freqs_shifted,
+        datasets: [
+          {
+            label: "Magnitude (dB)",
+            data: magnitude_db,
+            borderColor: "blue",
+            backgroundColor: "blue",
+            fill: false,
+            pointRadius: 0,
+            borderWidth: 1,
           },
-          plugins: {
-            tooltip: { enabled: false },
-            title: { display: true, text: "Амплитудный спектр сигнала" },
-          },
+        ],
+      },
+      options: {
+        animation: false,
+        elements: { point: { radius: 0, hoverRadius: 0, hitRadius: 0 } },
+        responsive: false,
+        interaction: { intersect: false },
+        scales: {
+          x: { title: { display: true, text: "Frequency (Hz)" } },
+          y: { title: { display: true, text: "Amplitude (dB)" } },
         },
-      });
-      setChart(newChart);
-    }
+        plugins: { tooltip: { enabled: false } },
+      },
+    });
+    setChart(newChart);
   };
 
   return (
@@ -136,7 +143,6 @@ function App() {
               value={frequencyInput()}
               onInput={(e) => {
                 const val = e.target.value;
-                setFrequencyInput(val);
                 setFrequency(parseFloat(val) || 1.0);
               }}
               class="border rounded px-2 py-1"
@@ -147,15 +153,16 @@ function App() {
             <label for="type" class="block mb-2">
               Type (0 or 1):
             </label>
-            <select
+            <input
               id="type"
+              type="number"
+              min="0"
+              max="1"
+              step="1"
               value={getPairIndex()}
               onChange={(e) => setPairIndex(parseInt(e.target.value))}
               class="border rounded px-2 py-1"
-            >
-              <option value={0}>0</option>
-              <option value={1}>1</option>
-            </select>
+            />
           </div>
         </div>
 
@@ -169,8 +176,8 @@ function App() {
           </button>
         </div>
 
-        <div class="h-96">
-          <canvas ref={setCanvasEl} />
+        <div class="h-200">
+          <canvas class="h-200" ref={setCanvasEl} />
         </div>
       </div>
     </main>

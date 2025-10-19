@@ -36,75 +36,131 @@ const trimAndSplit = z.string().transform((content, ctx) => {
   return lines;
 });
 
-const parseRows = z.array(z.string()).transform((lines, ctx) => {
-  const rows: number[][] = [];
-  let hasError = false;
-
-  for (const [index, line] of lines.entries()) {
-    const numbers = line.trim().split(/\s+/).map(Number);
-    const finiteNumbers = numbers.filter(Number.isFinite);
-    if (finiteNumbers.length < 2 || finiteNumbers.length % 2 !== 0) {
-      ctx.addIssue({
-        code: "custom",
-        message: `Invalid row ${
-          index + 1
-        }: expected even number of finite numbers (>=2), got ${
-          finiteNumbers.length
-        }`,
-        path: [index],
-      });
-      hasError = true;
-      // Skip this row; continue to check others
-    } else {
-      rows.push(finiteNumbers);
-    }
-  }
-
-  if (hasError) {
-    return z.NEVER;
-  }
-
-  if (rows.length === 0) {
+const detectHeader = z.array(z.string()).transform((lines, ctx) => {
+  if (lines.length === 0) {
     ctx.addIssue({
       code: "custom",
-      message: "No valid data rows found",
+      message: "No lines provided",
       path: [],
     });
     return z.NEVER;
   }
 
-  return rows;
-});
+  const firstLine = lines[0]!;
+  const parts = firstLine.trim().split(/\s+/);
+  const numbers = parts.map(Number);
+  const allFinite = numbers.every(Number.isFinite);
+  const len = numbers.length;
 
-const checkUniform = z.array(z.array(z.number())).transform((rows, ctx) => {
-  // Check uniformity of row lengths (only if all rows valid)
-  const firstLen = rows[0]!.length;
+  let header: string[] | null = null;
+  let dataLines = lines;
 
-  for (let i = 1; i < rows.length; i++) {
-    const rowLength = rows[i]!.length;
-
-    if (rowLength !== firstLen) {
+  if (allFinite && len >= 2 && len % 2 === 0) {
+    // First line is valid data, no header
+    header = null;
+  } else {
+    // Assume header
+    header = parts;
+    dataLines = lines.slice(1);
+    if (dataLines.length === 0) {
       ctx.addIssue({
         code: "custom",
-        message: `Row ${
-          i + 1
-        } has different number of columns (${rowLength}), expected ${firstLen}`,
-        path: [i],
+        message: "Header present but no data rows found",
+        path: [],
       });
       return z.NEVER;
     }
   }
 
-  return { data: rows, numCols: firstLen };
+  return { header, dataLines };
 });
+
+const parseDataRows = z
+  .object({
+    header: z.array(z.string()).nullable(),
+    dataLines: z.array(z.string()),
+  })
+  .transform((input, ctx) => {
+    const { header, dataLines } = input;
+    const rows: number[][] = [];
+
+    for (const [index, line] of dataLines.entries()) {
+      const parts = line.trim().split(/\s+/);
+      const numbers = parts.map(Number);
+      const allFinite = numbers.every(Number.isFinite);
+      const len = numbers.length;
+
+      if (!allFinite || len < 2 || len % 2 !== 0) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Invalid data row ${
+            index + 1
+          }: must contain even number of finite numbers (>=2), found ${len} parts with non-numeric values`,
+          path: ["dataLines", index],
+        });
+        return z.NEVER;
+      } else {
+        rows.push(numbers);
+      }
+    }
+
+    if (rows.length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "No valid data rows found",
+        path: ["dataLines"],
+      });
+      return z.NEVER;
+    }
+
+    return { header, rows };
+  });
+
+const checkUniform = z
+  .object({
+    header: z.array(z.string()).nullable(),
+    rows: z.array(z.array(z.number())),
+  })
+  .transform((input, ctx) => {
+    const { header, rows } = input;
+    // Check uniformity of row lengths (only if all rows valid)
+    const firstLen = rows[0]!.length;
+
+    for (let i = 1; i < rows.length; i++) {
+      const rowLength = rows[i]!.length;
+
+      if (rowLength !== firstLen) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Data row ${
+            i + 1
+          } has different number of columns (${rowLength}), expected ${firstLen}`,
+          path: ["rows", i],
+        });
+        return z.NEVER;
+      }
+    }
+
+    return { header, data: rows, numCols: firstLen };
+  });
 
 const splitIntoPairs = z
   .object({
+    header: z.array(z.string()).nullable(),
     data: z.array(z.array(z.number())),
     numCols: z.number(),
   })
   .transform((result, ctx) => {
-    const { data, numCols } = result;
+    const { header, data, numCols } = result;
+    // Validate header length if present
+    if (header && header.length !== numCols) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Header has ${header.length} titles, but data has ${numCols} columns`,
+        path: ["header"],
+      });
+      return z.NEVER;
+    }
     if (numCols % 2 !== 0) {
       ctx.addIssue({
         code: "custom",
@@ -123,10 +179,11 @@ const splitIntoPairs = z
       return pairs;
     });
 
-    return { rows: pairedData, numPairs, numCols };
+    return { header, rows: pairedData, numPairs, numCols };
   });
 
 const outputSchema = z.object({
+  header: z.array(z.string()).nullable(),
   rows: z.array(dataRowSchema),
   numPairs: z.number(),
   numCols: z.number(),
@@ -135,7 +192,8 @@ const outputSchema = z.object({
 const dataSchema = z
   .string()
   .pipe(trimAndSplit)
-  .pipe(parseRows)
+  .pipe(detectHeader)
+  .pipe(parseDataRows)
   .pipe(checkUniform)
   .pipe(splitIntoPairs)
   .pipe(outputSchema);
