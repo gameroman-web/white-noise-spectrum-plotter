@@ -198,4 +198,6 @@ const dataSchema = z
   .pipe(splitIntoPairs)
   .pipe(outputSchema);
 
-export { dataSchema };
+type Data = z.infer<typeof dataSchema>;
+
+export { dataSchema, type Data };
