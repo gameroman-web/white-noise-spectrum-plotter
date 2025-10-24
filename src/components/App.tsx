@@ -8,8 +8,7 @@ import { fftfreq, fftshift } from "~/lib/fft-utils";
 
 Chart.register(...registerables);
 
-function processData(rows: ReImPair[][], pairIndex: number, setStatus: (status: string) => void) {
-  setStatus("Computing FFT...");
+function processData(rows: ReImPair[][], pairIndex: number) {
   const signal: ReImPair[] = rows.map((row) => row[pairIndex]!);
 
   const realInput = signal.map((s) => s[0]);
@@ -30,7 +29,7 @@ function processData(rows: ReImPair[][], pairIndex: number, setStatus: (status: 
 
 function App() {
   const [parsedData, setParsedData] = createSignal<Data | null>(null);
-  const [status, setStatus] = createSignal("Idle");
+  const [status, setStatus] = createSignal<(string & {}) | "Idle">("Idle");
   const [error, setError] = createSignal<string | null>(null);
   const [frequencyInput] = createSignal("1");
   const [getFrequency, setFrequency] = createSignal(1.0);
@@ -46,7 +45,6 @@ function App() {
   };
 
   const plot = () => {
-    updateStatus("Plotting...");
     const data = parsedData();
     const pairIndex = getPairIndex();
     const frequency = getFrequency();
@@ -58,13 +56,18 @@ function App() {
     }
 
     if (pairIndex < 0 || pairIndex >= data.numPairs) {
-      setError(`Invalid pair index: ${pairIndex + 1}. Must be between 1 and ${data.numPairs}.`);
+      setError(
+        `Invalid pair index: ${pairIndex + 1}. Must be between 1 and ${
+          data.numPairs
+        }.`
+      );
       setStatus("Idle");
       return;
     }
 
     try {
-      const { magnitude_db, signalLength } = processData(data.rows, pairIndex, updateStatus);
+      updateStatus("Processing data...");
+      const { magnitude_db, signalLength } = processData(data.rows, pairIndex);
 
       const freqs = fftfreq(signalLength, frequency);
       const freqs_shifted = fftshift(freqs);
@@ -79,11 +82,11 @@ function App() {
 
       const chart = getChart();
 
+      updateStatus("Plotting...");
       if (chart) {
         chart.data.labels = freqs_shifted;
         chart.data.datasets[0]!.data = magnitude_db;
         chart.update("none");
-        setStatus("Spectrum plotted successfully.");
         return;
       }
 
@@ -116,9 +119,12 @@ function App() {
         },
       });
       setChart(newChart);
-      setStatus("Spectrum plotted successfully.");
+      setStatus("Idle");
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "An unexpected error occurred while plotting.";
+      const errorMsg =
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred while plotting.";
       setError(`Plotting error: ${errorMsg}`);
       setStatus("Idle");
     }
@@ -170,9 +176,12 @@ function App() {
                   try {
                     const parsed = dataSchema.parse(content);
                     setParsedData(parsed);
-                    setStatus("File parsed successfully.");
+                    setStatus("Idle");
                   } catch (err) {
-                    const errorMsg = err instanceof Error ? err.message : "Invalid file format.";
+                    const errorMsg =
+                      err instanceof Error
+                        ? err.message
+                        : "Invalid file format.";
                     setError(`Parse error: ${errorMsg}`);
                     setStatus("Idle");
                     setParsedData(null);
@@ -192,7 +201,7 @@ function App() {
         <div class="flex space-x-4">
           <div>
             <label for="frequency" class="block mb-2">
-              Sampling frequency (hertz):
+              Sampling frequency (hertz)
             </label>
             <input
               id="frequency"
@@ -209,7 +218,9 @@ function App() {
 
           <div>
             <label for="type" class="block mb-2">
-              Column pair:
+              {parsedData()?.numPairs
+                ? `Column pair (1-${parsedData()?.numPairs})`
+                : "Column pair"}
             </label>
             <input
               id="type"
