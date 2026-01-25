@@ -1,16 +1,16 @@
-import { z } from "zod";
+import * as z from "zod";
 
-type RealPart = number & {};
-type ImaginaryPart = number & {};
-export type ReImPair = [RealPart, ImaginaryPart];
+const finiteNumber = z.number().check(
+  z.refine((n) => Number.isFinite(n), {
+    message: "Number must be finite",
+  }),
+);
 
-const finiteNumber = z.number().refine((n) => Number.isFinite(n), {
-  message: "Number must be finite",
-});
+const RealPart = finiteNumber.brand("RealPart");
+const ImaginaryPart = finiteNumber.brand("ImaginaryPart");
+const ReImPair = z.tuple([RealPart, ImaginaryPart]);
 
-const pairSchema = z.tuple([finiteNumber, finiteNumber]);
-
-const dataRowSchema = z.array(pairSchema).nonempty();
+export type ReImPair = z.infer<typeof ReImPair>;
 
 const trimAndSplit = z.string().transform((content, ctx) => {
   const trimmed = content.trim();
@@ -77,7 +77,7 @@ const detectHeader = z.array(z.string()).transform((lines, ctx) => {
 
 const parseDataRows = z
   .object({
-    header: z.array(z.string()).nullable(),
+    header: z.nullable(z.array(z.string())),
     dataLines: z.array(z.string()),
   })
   .transform((input, ctx) => {
@@ -118,7 +118,7 @@ const parseDataRows = z
 
 const checkUniform = z
   .object({
-    header: z.array(z.string()).nullable(),
+    header: z.nullable(z.array(z.string())),
     rows: z.array(z.array(z.number())),
   })
   .transform((input, ctx) => {
@@ -146,7 +146,7 @@ const checkUniform = z
 
 const splitIntoPairs = z
   .object({
-    header: z.array(z.string()).nullable(),
+    header: z.nullable(z.array(z.string())),
     data: z.array(z.array(z.number())),
     numCols: z.number(),
   })
@@ -174,7 +174,7 @@ const splitIntoPairs = z
     const pairedData: ReImPair[][] = data.map((row) => {
       const pairs: ReImPair[] = [];
       for (let i = 0; i < row.length; i += 2) {
-        pairs.push([row[i]!, row[i + 1]!]);
+        pairs.push(ReImPair.parse([row[i], row[i + 1]]));
       }
       return pairs;
     });
@@ -182,21 +182,13 @@ const splitIntoPairs = z
     return { header, rows: pairedData, numPairs, numCols };
   });
 
-const outputSchema = z.object({
-  header: z.array(z.string()).nullable(),
-  rows: z.array(dataRowSchema),
-  numPairs: z.number(),
-  numCols: z.number(),
-});
-
 const dataSchema = z
   .string()
   .pipe(trimAndSplit)
   .pipe(detectHeader)
   .pipe(parseDataRows)
   .pipe(checkUniform)
-  .pipe(splitIntoPairs)
-  .pipe(outputSchema);
+  .pipe(splitIntoPairs);
 
 type Data = z.infer<typeof dataSchema>;
 

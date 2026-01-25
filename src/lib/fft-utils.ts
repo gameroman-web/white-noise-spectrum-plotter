@@ -1,5 +1,5 @@
 function fftfreq(n: number, frequency: number): number[] {
-  const freqs = Array.from({ length: n });
+  const freqs = Array.from<number>({ length: n });
   const factor = 1.0 / (n * (1 / frequency));
   for (let i = 0; i < n; ++i) {
     freqs[i] = (i < n / 2 ? i : i - n) * factor;
