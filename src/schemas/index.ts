@@ -12,75 +12,81 @@ const ReImPair = z.tuple([RealPart, ImaginaryPart]);
 
 export type ReImPair = z.infer<typeof ReImPair>;
 
-const trimAndSplit = z.string().transform((content, ctx) => {
-  const trimmed = content.trim();
-  if (!trimmed) {
-    ctx.addIssue({
-      code: "custom",
-      message: "No content provided",
-      path: [],
-    });
-    return z.NEVER;
-  }
-
-  const lines = trimmed.split("\n").filter((line) => line.trim());
-  if (lines.length === 0) {
-    ctx.addIssue({
-      code: "custom",
-      message: "No valid data rows found",
-      path: [],
-    });
-    return z.NEVER;
-  }
-
-  return lines;
-});
-
-const detectHeader = z.array(z.string()).transform((lines, ctx) => {
-  if (lines.length === 0) {
-    ctx.addIssue({
-      code: "custom",
-      message: "No lines provided",
-      path: [],
-    });
-    return z.NEVER;
-  }
-
-  const firstLine = lines[0]!;
-  const parts = firstLine.trim().split(/\s+/);
-  const numbers = parts.map(Number);
-  const allFinite = numbers.every(Number.isFinite);
-  const len = numbers.length;
-
-  let header: string[] | null = null;
-  let dataLines = lines;
-
-  if (allFinite && len >= 2 && len % 2 === 0) {
-    // First line is valid data, no header
-    header = null;
-  } else {
-    // Assume header
-    header = parts;
-    dataLines = lines.slice(1);
-    if (dataLines.length === 0) {
-      ctx.addIssue({
+const trimAndSplit = z.pipe(
+  z.string(),
+  z.transform((content, ctx) => {
+    const trimmed = content.trim();
+    if (!trimmed) {
+      ctx.issues.push({
+        input: content,
         code: "custom",
-        message: "Header present but no data rows found",
-        path: [],
+        message: "No content provided",
       });
       return z.NEVER;
     }
-  }
 
-  return { header, dataLines };
-});
+    const lines = trimmed.split("\n").filter((line) => line.trim());
+    if (lines.length === 0) {
+      ctx.issues.push({
+        input: content,
+        code: "custom",
+        message: "No valid data rows found",
+      });
+      return z.NEVER;
+    }
 
-const parseDataRows = z
-  .object({
+    return lines;
+  }),
+);
+
+const detectHeader = z.pipe(
+  z.array(z.string()),
+  z.transform((lines, ctx) => {
+    if (lines.length === 0) {
+      ctx.issues.push({
+        input: lines,
+        code: "custom",
+        message: "No lines provided",
+      });
+      return z.NEVER;
+    }
+
+    const firstLine = lines[0]!;
+    const parts = firstLine.trim().split(/\s+/);
+    const numbers = parts.map(Number);
+    const allFinite = numbers.every(Number.isFinite);
+    const len = numbers.length;
+
+    let header: string[] | null = null;
+    let dataLines = lines;
+
+    if (allFinite && len >= 2 && len % 2 === 0) {
+      // First line is valid data, no header
+      header = null;
+    } else {
+      // Assume header
+      header = parts;
+      dataLines = lines.slice(1);
+      if (dataLines.length === 0) {
+        ctx.issues.push({
+          input: lines,
+          code: "custom",
+          message: "Header present but no data rows found",
+        });
+        return z.NEVER;
+      }
+    }
+
+    return { header, dataLines };
+  }),
+);
+
+const parseDataRows = z.pipe(
+  z.object({
     header: z.nullable(z.array(z.string())),
     dataLines: z.array(z.string()),
-  })
-  .transform((input, ctx) => {
+  }),
+  z.transform((input, ctx) => {
     const { header, dataLines } = input;
     const rows: number[][] = [];
 
@@ -91,7 +97,8 @@ const parseDataRows = z
       const len = numbers.length;
 
       if (!allFinite || len < 2 || len % 2 !== 0) {
-        ctx.addIssue({
+        ctx.issues.push({
+          input,
           code: "custom",
           message: `Invalid data row ${
             index + 1
@@ -105,7 +112,8 @@ const parseDataRows = z
     }
 
     if (rows.length === 0) {
-      ctx.addIssue({
+      ctx.issues.push({
+        input,
         code: "custom",
         message: "No valid data rows found",
         path: ["dataLines"],
@@ -114,14 +122,15 @@ const parseDataRows = z
     }
 
     return { header, rows };
-  });
+  }),
+);
 
-const checkUniform = z
-  .object({
+const checkUniform = z.pipe(
+  z.object({
     header: z.nullable(z.array(z.string())),
     rows: z.array(z.array(z.number())),
-  })
-  .transform((input, ctx) => {
+  }),
+  z.transform((input, ctx) => {
     const { header, rows } = input;
     // Check uniformity of row lengths (only if all rows valid)
     const firstLen = rows[0]!.length;
@@ -130,7 +139,8 @@ const checkUniform = z
       const rowLength = rows[i]!.length;
 
       if (rowLength !== firstLen) {
-        ctx.addIssue({
+        ctx.issues.push({
+          input,
           code: "custom",
           message: `Data row ${
             i + 1
@@ -142,27 +152,31 @@ const checkUniform = z
     }
 
     return { header, data: rows, numCols: firstLen };
-  });
+  }),
+);
 
-const splitIntoPairs = z
-  .object({
+const splitIntoPairs = z.pipe(
+  z.object({
     header: z.nullable(z.array(z.string())),
     data: z.array(z.array(z.number())),
     numCols: z.number(),
-  })
-  .transform((result, ctx) => {
+  }),
+  z.transform((result, ctx) => {
     const { header, data, numCols } = result;
     // Validate header length if present
     if (header && header.length !== numCols) {
-      ctx.addIssue({
+      ctx.issues.push({
+        input: result,
         code: "custom",
         message: `Header has ${header.length} titles, but data has ${numCols} columns`,
         path: ["header"],
       });
       return z.NEVER;
     }
+
     if (numCols % 2 !== 0) {
-      ctx.addIssue({
+      ctx.issues.push({
+        input: result,
         code: "custom",
         message: "Number of columns must be even for pairing",
         path: ["numCols"],
@@ -180,7 +194,8 @@ const splitIntoPairs = z
     });
 
     return { header, rows: pairedData, numPairs, numCols };
-  });
+  }),
+);
 
 const dataSchema = z
   .string()
