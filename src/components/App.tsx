@@ -1,14 +1,13 @@
-import { createSignal } from "solid-js";
 import { Chart, registerables } from "chart.js/auto";
-
 import { transform as fft } from "fft.ts/nayuki";
-
-import { dataSchema, type ReImPair, type Data } from "~/schemas";
-import { fftfreq, fftshift } from "~/lib/fft-utils";
+import { createSignal } from "solid-js";
+import { fftfreq, fftshift } from "#lib/fft-utils";
+import { type Data, dataSchema, type ReImPair } from "#schemas";
 
 Chart.register(...registerables);
 
 function processData(rows: ReImPair[][], pairIndex: number) {
+  // biome-ignore lint/style/noNonNullAssertion: realInput and imagInput are same size
   const signal: ReImPair[] = rows.map((row) => row[pairIndex]!);
 
   const realInput = signal.map((s) => s[0]);
@@ -16,6 +15,7 @@ function processData(rows: ReImPair[][], pairIndex: number) {
 
   fft(realInput, imagInput);
 
+  // biome-ignore lint/style/noNonNullAssertion: realInput and imagInput are same size
   const phasors: ReImPair[] = realInput.map((re, i) => [re, imagInput[i]!]);
 
   const phasors_shifted = fftshift(phasors);
@@ -59,7 +59,7 @@ function App() {
       setError(
         `Invalid pair index: ${pairIndex + 1}. Must be between 1 and ${
           data.numPairs
-        }.`
+        }.`,
       );
       setStatus("Idle");
       return;
@@ -85,6 +85,7 @@ function App() {
       updateStatus("Plotting...");
       if (chart) {
         chart.data.labels = freqs_shifted;
+        // biome-ignore lint/style/noNonNullAssertion: there is one dataset
         chart.data.datasets[0]!.data = magnitude_db;
         chart.update("none");
         return;
@@ -144,6 +145,7 @@ function App() {
         <div class="mb-4 p-3 bg-red-100 border border-red-300 rounded text-red-800">
           {error()}
           <button
+            type="button"
             onClick={clearError}
             class="ml-4 text-red-600 hover:text-red-800 underline"
           >
@@ -231,7 +233,7 @@ function App() {
               value={pairIndexInput()}
               onChange={(e) => {
                 const val = e.target.value;
-                const index = (parseInt(val) || 1) - 1;
+                const index = (parseInt(val, 10) || 1) - 1;
                 setPairIndex(Math.max(0, index));
               }}
               class="border rounded px-2 py-1"
@@ -241,6 +243,7 @@ function App() {
 
         <div>
           <button
+            type="button"
             onClick={plot}
             class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded cursor-pointer disabled:bg-gray-400 disabled:cursor-not-allowed"
             disabled={!parsedData()}

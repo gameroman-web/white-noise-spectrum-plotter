@@ -42,7 +42,7 @@ const trimAndSplit = z.pipe(
 const detectHeader = z.pipe(
   z.array(z.string()),
   z.transform((lines, ctx) => {
-    if (lines.length === 0) {
+    if (!lines[0]) {
       ctx.issues.push({
         input: lines,
         code: "custom",
@@ -51,7 +51,7 @@ const detectHeader = z.pipe(
       return z.NEVER;
     }
 
-    const firstLine = lines[0]!;
+    const firstLine = lines[0];
     const parts = firstLine.trim().split(/\s+/);
     const numbers = parts.map(Number);
     const allFinite = numbers.every(Number.isFinite);
@@ -111,7 +111,7 @@ const parseDataRows = z.pipe(
       }
     }
 
-    if (rows.length === 0) {
+    if (!rows[0]) {
       ctx.issues.push({
         input,
         code: "custom",
@@ -121,22 +121,25 @@ const parseDataRows = z.pipe(
       return z.NEVER;
     }
 
-    return { header, rows };
+    return { header, rows: [rows[0], ...rows.slice(1)] as const };
   }),
 );
 
 const checkUniform = z.pipe(
   z.object({
     header: z.nullable(z.array(z.string())),
-    rows: z.array(z.array(z.number())),
+    rows: z
+      .tuple([z.array(z.number())])
+      .rest(z.array(z.number()))
+      .readonly(),
   }),
   z.transform((input, ctx) => {
     const { header, rows } = input;
     // Check uniformity of row lengths (only if all rows valid)
-    const firstLen = rows[0]!.length;
+    const firstLen = rows[0].length;
 
     for (let i = 1; i < rows.length; i++) {
-      const rowLength = rows[i]!.length;
+      const rowLength = rows[i]?.length;
 
       if (rowLength !== firstLen) {
         ctx.issues.push({
@@ -158,7 +161,10 @@ const checkUniform = z.pipe(
 const splitIntoPairs = z.pipe(
   z.object({
     header: z.nullable(z.array(z.string())),
-    data: z.array(z.array(z.number())),
+    data: z
+      .tuple([z.array(z.number())])
+      .rest(z.array(z.number()))
+      .readonly(),
     numCols: z.number(),
   }),
   z.transform((result, ctx) => {
@@ -207,4 +213,4 @@ const dataSchema = z
 
 type Data = z.infer<typeof dataSchema>;
 
-export { dataSchema, type Data };
+export { type Data, dataSchema };

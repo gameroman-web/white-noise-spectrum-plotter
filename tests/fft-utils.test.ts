@@ -1,6 +1,6 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 
-import { fftfreq, fftshift } from "~/lib/fft-utils";
+import { fftfreq, fftshift } from "#lib/fft-utils";
 
 describe("fft-utils", () => {
   it("Should match numpy behaviour", () => {

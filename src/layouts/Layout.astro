@@ -1,10 +1,10 @@
 ---
-import "~/styles/global.css";
+import "#styles";
 
 interface Props {
   title: string;
   description: string;
-  children: any;
+  children: unknown;
 }
 
 const canonical = undefined;
@@ -24,12 +24,10 @@ const { title, description } = Astro.props;
     <title>{title}</title>
     <meta name="description" content={description} />
 
-    <!-- Open Graph -->
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
 
-    <!-- Twitter -->
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
 
