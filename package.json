@@ -20,7 +20,7 @@
   "dependencies": {
     "@astrojs/solid-js": "6.0.1",
     "@tailwindcss/vite": "4.3.0",
-    "astro": "6.4.2",
+    "astro": "6.4.3",
     "chart.js": "4.5.1",
     "fft.ts": "0.0.3",
     "solid-js": "1.9.13",
