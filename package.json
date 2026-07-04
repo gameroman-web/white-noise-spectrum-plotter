@@ -23,7 +23,7 @@
     "astro": "6.4.8",
     "chart.js": "4.5.1",
     "fft.ts": "0.0.3",
-    "solid-js": "1.9.13",
+    "solid-js": "1.9.14",
     "tailwindcss": "4.3.2",
     "zod": "4.4.3"
   },
