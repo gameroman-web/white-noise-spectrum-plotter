@@ -6,9 +6,7 @@ const finiteNumber = z.number().check(
   }),
 );
 
-const RealPart = finiteNumber.brand("RealPart");
-const ImaginaryPart = finiteNumber.brand("ImaginaryPart");
-const ReImPair = z.tuple([RealPart, ImaginaryPart]);
+const ReImPair = z.tuple([finiteNumber, finiteNumber]);
 
 export type ReImPair = z.infer<typeof ReImPair>;
 
@@ -191,7 +189,7 @@ const splitIntoPairs = z.pipe(
     }
 
     const numPairs = numCols / 2;
-    const pairedData: ReImPair[][] = data.map((row) => {
+    const pairedData: DataRows = data.map((row) => {
       const pairs: ReImPair[] = [];
       for (let i = 0; i < row.length; i += 2) {
         pairs.push(ReImPair.parse([row[i], row[i + 1]]));
@@ -203,6 +201,8 @@ const splitIntoPairs = z.pipe(
   }),
 );
 
+type DataRows = ReImPair[][];
+
 const dataSchema = z
   .string()
   .pipe(trimAndSplit)
@@ -213,4 +213,5 @@ const dataSchema = z
 
 type Data = z.infer<typeof dataSchema>;
 
-export { type Data, dataSchema };
+export type { Data, DataRows };
+export { dataSchema };

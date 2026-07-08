@@ -1,39 +1,17 @@
 import { Chart, registerables } from "chart.js/auto";
-import { transform as fft } from "fft.ts/nayuki";
 import { createSignal } from "solid-js";
-import { fftfreq, fftshift } from "#lib/fft-utils";
-import { type Data, dataSchema, type ReImPair } from "#schemas";
+
+import { processData } from "#lib/process-data";
+import type { Data } from "#schemas";
+import { dataSchema } from "#schemas";
 
 Chart.register(...registerables);
-
-function processData(rows: ReImPair[][], pairIndex: number) {
-  // biome-ignore lint/style/noNonNullAssertion: realInput and imagInput are same size
-  const signal: ReImPair[] = rows.map((row) => row[pairIndex]!);
-
-  const realInput = signal.map((s) => s[0]);
-  const imagInput = signal.map((s) => s[1]);
-
-  fft(realInput, imagInput);
-
-  // biome-ignore lint/style/noNonNullAssertion: realInput and imagInput are same size
-  const phasors: ReImPair[] = realInput.map((re, i) => [re, imagInput[i]!]);
-
-  const phasors_shifted = fftshift(phasors);
-
-  const magnitude_db = phasors_shifted
-    .map((p) => Math.sqrt(p[0] ** 2 + p[1] ** 2))
-    .map((m) => 20 * Math.log10(m + 1e-12));
-  const signalLength = signal.length;
-  return { magnitude_db, signalLength };
-}
 
 function App() {
   const [parsedData, setParsedData] = createSignal<Data | null>(null);
   const [status, setStatus] = createSignal<(string & {}) | "Idle">("Idle");
   const [error, setError] = createSignal<string | null>(null);
-  const [frequencyInput] = createSignal("1");
   const [getFrequency, setFrequency] = createSignal(1.0);
-  const [pairIndexInput] = createSignal("1");
   const [getPairIndex, setPairIndex] = createSignal(0);
   const [getChart, setChart] = createSignal<Chart<"line", number[], number>>();
   const [canvasEl, setCanvasEl] = createSignal<HTMLCanvasElement>();
@@ -67,10 +45,11 @@ function App() {
 
     try {
       updateStatus("Processing data...");
-      const { magnitude_db, signalLength } = processData(data.rows, pairIndex);
-
-      const freqs = fftfreq(signalLength, frequency);
-      const freqs_shifted = fftshift(freqs);
+      const { magnitude_db, freqs_shifted } = processData(
+        data.rows,
+        pairIndex,
+        frequency,
+      );
 
       const ctx = canvasEl();
 
@@ -209,7 +188,7 @@ function App() {
               id="frequency"
               type="number"
               step="1"
-              value={frequencyInput()}
+              value="1"
               onInput={(e) => {
                 const val = e.target.value;
                 setFrequency(parseFloat(val) || 1.0);
@@ -230,7 +209,7 @@ function App() {
               min="1"
               max={parsedData()?.numPairs || 2}
               step="1"
-              value={pairIndexInput()}
+              value="1"
               onChange={(e) => {
                 const val = e.target.value;
                 const index = (parseInt(val, 10) || 1) - 1;
