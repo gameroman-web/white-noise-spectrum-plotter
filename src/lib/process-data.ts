@@ -3,9 +3,9 @@ import { fftfreq, fftshift } from "fft.ts/utils";
 import type { DataRow, DataRows, ReImPair } from "#schemas";
 
 function shiftedPhasorsToDecibelMagnitude(shiftedPhasors: DataRow) {
-  return shiftedPhasors
-    .map((p) => Math.hypot(p[0], p[1]))
-    .map((m) => 20 * Math.log10(m + 1e-12));
+  return shiftedPhasors.map(
+    (p) => 20 * Math.log10(Math.hypot(p[0], p[1]) + 1e-12),
+  );
 }
 
 function processData(rows: DataRows, pairIndex: number, frequency: number) {
