@@ -21,11 +21,9 @@ function processData(rows: DataRows, pairIndex: number, frequency: number) {
   const phasors = real.map<ReImPair>((re, i) => [re, imag[i]!]);
 
   const shiftedPhasors = fftshift(phasors);
-
   const decibelMagnitude = shiftedPhasorsToDecibelMagnitude(shiftedPhasors);
 
-  const signalLength = signal.length;
-  const freqs = fftfreq(signalLength, frequency);
+  const freqs = fftfreq(signal.length, frequency);
   const freqs_shifted = fftshift(freqs);
 
   return { magnitude_db: decibelMagnitude, freqs_shifted } as const;
