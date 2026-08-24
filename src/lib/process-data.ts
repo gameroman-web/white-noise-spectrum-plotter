@@ -1,6 +1,6 @@
 import { fft } from "fft.ts";
 import { fftfreq, fftshift } from "fft.ts/utils";
-import type { DataRow, DataRows, ReImPair } from "#schemas";
+import type { DataRow, ReImPair } from "#schemas";
 
 function shiftedPhasorsToDecibelMagnitude(shiftedPhasors: DataRow) {
   return shiftedPhasors.map(
@@ -8,10 +8,7 @@ function shiftedPhasorsToDecibelMagnitude(shiftedPhasors: DataRow) {
   );
 }
 
-function processData(rows: DataRows, pairIndex: number, frequency: number) {
-  // biome-ignore lint/style/noNonNullAssertion: pairIndex should be passed correctly
-  const signal = rows.map((row) => row[pairIndex]!);
-
+function processData(signal: DataRow, frequency: number) {
   const realInput = signal.map((s) => s[0]);
   const imagInput = signal.map((s) => s[1]);
 

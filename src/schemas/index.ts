@@ -189,7 +189,7 @@ const splitIntoPairs = z.pipe(
     }
 
     const numPairs = numCols / 2;
-    const pairedData: DataRows = data.map((row) => {
+    const pairedData: DataRow[] = data.map((row) => {
       const pairs: DataRow = [];
       for (let i = 0; i < row.length; i += 2) {
         pairs.push(ReImPair.parse([row[i], row[i + 1]]));
@@ -202,7 +202,6 @@ const splitIntoPairs = z.pipe(
 );
 
 type DataRow = ReImPair[];
-type DataRows = DataRow[];
 
 const dataSchema = z
   .string()
@@ -214,5 +213,5 @@ const dataSchema = z
 
 type Data = z.infer<typeof dataSchema>;
 
-export type { Data, DataRow, DataRows };
+export type { Data, DataRow };
 export { dataSchema };

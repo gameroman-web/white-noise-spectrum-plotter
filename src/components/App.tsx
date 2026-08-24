@@ -45,11 +45,10 @@ function App() {
 
     try {
       updateStatus("Processing data...");
-      const { magnitude_db, freqs_shifted } = processData(
-        data.rows,
-        pairIndex,
-        frequency,
-      );
+
+      // biome-ignore lint/style/noNonNullAssertion: pairIndex should be passed correctly
+      const signal = data.rows.map((row) => row[pairIndex]!);
+      const { magnitude_db, freqs_shifted } = processData(signal, frequency);
 
       const ctx = canvasEl();
 
