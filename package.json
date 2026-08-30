@@ -39,7 +39,7 @@
     "fft.ts": "0.1.2",
     "solid-js": "1.9.15",
     "tailwindcss": "4.3.3",
-    "zod": "4.4.3"
+    "zod": "4.5.1"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.11",
