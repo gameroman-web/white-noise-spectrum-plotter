@@ -1,221 +1,100 @@
-import * as z from "zod";
+export type ReImPair = [number, number];
+export type DataRow = ReImPair[];
 
-const finiteNumber = z.number().check(
-  z.refine((n) => Number.isFinite(n), {
-    message: "Number must be finite",
-  }),
-);
+export type Data = {
+  header: string[] | null;
+  rows: readonly DataRow[];
+  numPairs: number;
+  numCols: number;
+};
 
-const ReImPair = z.tuple([finiteNumber, finiteNumber]);
+function parseContent(content: string): Data {
+  const trimmed = content.trim();
+  if (!trimmed) {
+    throw new Error("No content provided");
+  }
 
-export type ReImPair = z.infer<typeof ReImPair>;
+  const lines = trimmed.split("\n").filter((line) => line.trim());
+  if (lines.length === 0) {
+    throw new Error("No valid data rows found");
+  }
 
-const trimAndSplit = z.pipe(
-  z.string(),
-  z.transform((content, ctx) => {
-    const trimmed = content.trim();
-    if (!trimmed) {
-      ctx.issues.push({
-        input: content,
-        code: "custom",
-        message: "No content provided",
-      });
-      return z.NEVER;
+  const firstLine = lines[0];
+  if (!firstLine) {
+    throw new Error("No lines provided");
+  }
+  const firstParts = firstLine.trim().split(/\s+/);
+  const firstNumbers = firstParts.map(Number);
+  const firstAllFinite = firstNumbers.every(Number.isFinite);
+  const firstLen = firstNumbers.length;
+
+  let header: string[] | null = null;
+  let dataLines = lines;
+
+  if (firstAllFinite && firstLen >= 2 && firstLen % 2 === 0) {
+    header = null;
+  } else {
+    header = firstParts;
+    dataLines = lines.slice(1);
+    if (dataLines.length === 0) {
+      throw new Error("Header present but no data rows found");
     }
+  }
 
-    const lines = trimmed.split("\n").filter((line) => line.trim());
-    if (lines.length === 0) {
-      ctx.issues.push({
-        input: content,
-        code: "custom",
-        message: "No valid data rows found",
-      });
-      return z.NEVER;
-    }
-
-    return lines;
-  }),
-);
-
-const detectHeader = z.pipe(
-  z.array(z.string()),
-  z.transform((lines, ctx) => {
-    if (!lines[0]) {
-      ctx.issues.push({
-        input: lines,
-        code: "custom",
-        message: "No lines provided",
-      });
-      return z.NEVER;
-    }
-
-    const firstLine = lines[0];
-    const parts = firstLine.trim().split(/\s+/);
+  const rows: number[][] = [];
+  for (const [index, line] of dataLines.entries()) {
+    const parts = line.trim().split(/\s+/);
     const numbers = parts.map(Number);
     const allFinite = numbers.every(Number.isFinite);
     const len = numbers.length;
 
-    let header: string[] | null = null;
-    let dataLines = lines;
+    if (!allFinite || len < 2 || len % 2 !== 0) {
+      throw new Error(
+        `Invalid data row ${index + 1}: must contain even number of finite numbers (>=2), found ${len} parts with non-numeric values`,
+      );
+    }
+    rows.push(numbers);
+  }
 
-    if (allFinite && len >= 2 && len % 2 === 0) {
-      // First line is valid data, no header
-      header = null;
-    } else {
-      // Assume header
-      header = parts;
-      dataLines = lines.slice(1);
-      if (dataLines.length === 0) {
-        ctx.issues.push({
-          input: lines,
-          code: "custom",
-          message: "Header present but no data rows found",
-        });
-        return z.NEVER;
+  const firstRow = rows[0];
+  if (!firstRow) {
+    throw new Error("No valid data rows found");
+  }
+  const firstRowLen = firstRow.length;
+  for (let i = 1; i < rows.length; i++) {
+    const rowLength = rows[i]?.length;
+    if (rowLength !== firstRowLen) {
+      throw new Error(
+        `Data row ${i + 1} has different number of columns (${rowLength}), expected ${firstRowLen}`,
+      );
+    }
+  }
+
+  if (header && header.length !== firstRowLen) {
+    throw new Error(
+      `Header has ${header.length} titles, but data has ${firstRowLen} columns`,
+    );
+  }
+
+  if (firstRowLen % 2 !== 0) {
+    throw new Error("Number of columns must be even for pairing");
+  }
+
+  const numPairs = firstRowLen / 2;
+  const pairedData: DataRow[] = rows.map((row) => {
+    const pairs: DataRow = [];
+    for (let i = 0; i < row.length; i += 2) {
+      const real = row[i];
+      const imag = row[i + 1];
+      if (real === undefined || imag === undefined) {
+        throw new Error("Number of columns must be even for pairing");
       }
+      pairs.push([real, imag]);
     }
+    return pairs;
+  });
 
-    return { header, dataLines };
-  }),
-);
-
-const parseDataRows = z.pipe(
-  z.object({
-    header: z.nullable(z.array(z.string())),
-    dataLines: z.array(z.string()),
-  }),
-  z.transform((input, ctx) => {
-    const { header, dataLines } = input;
-    const rows: number[][] = [];
-
-    for (const [index, line] of dataLines.entries()) {
-      const parts = line.trim().split(/\s+/);
-      const numbers = parts.map(Number);
-      const allFinite = numbers.every(Number.isFinite);
-      const len = numbers.length;
-
-      if (!allFinite || len < 2 || len % 2 !== 0) {
-        ctx.issues.push({
-          input,
-          code: "custom",
-          message: `Invalid data row ${
-            index + 1
-          }: must contain even number of finite numbers (>=2), found ${len} parts with non-numeric values`,
-          path: ["dataLines", index],
-        });
-        return z.NEVER;
-      } else {
-        rows.push(numbers);
-      }
-    }
-
-    if (!rows[0]) {
-      ctx.issues.push({
-        input,
-        code: "custom",
-        message: "No valid data rows found",
-        path: ["dataLines"],
-      });
-      return z.NEVER;
-    }
-
-    return { header, rows: [rows[0], ...rows.slice(1)] as const };
-  }),
-);
-
-const checkUniform = z.pipe(
-  z.object({
-    header: z.nullable(z.array(z.string())),
-    rows: z
-      .tuple([z.array(z.number())])
-      .rest(z.array(z.number()))
-      .readonly(),
-  }),
-  z.transform((input, ctx) => {
-    const { header, rows } = input;
-    // Check uniformity of row lengths (only if all rows valid)
-    const firstLen = rows[0].length;
-
-    for (let i = 1; i < rows.length; i++) {
-      const rowLength = rows[i]?.length;
-
-      if (rowLength !== firstLen) {
-        ctx.issues.push({
-          input,
-          code: "custom",
-          message: `Data row ${
-            i + 1
-          } has different number of columns (${rowLength}), expected ${firstLen}`,
-          path: ["rows", i],
-        });
-        return z.NEVER;
-      }
-    }
-
-    return { header, data: rows, numCols: firstLen };
-  }),
-);
-
-const splitIntoPairs = z.pipe(
-  z.object({
-    header: z.nullable(z.array(z.string())),
-    data: z
-      .tuple([z.array(z.number())])
-      .rest(z.array(z.number()))
-      .readonly(),
-    numCols: z.number(),
-  }),
-  z.transform((result, ctx) => {
-    const { header, data, numCols } = result;
-    // Validate header length if present
-    if (header && header.length !== numCols) {
-      ctx.issues.push({
-        input: result,
-        code: "custom",
-        message: `Header has ${header.length} titles, but data has ${numCols} columns`,
-        path: ["header"],
-      });
-      return z.NEVER;
-    }
-
-    if (numCols % 2 !== 0) {
-      ctx.issues.push({
-        input: result,
-        code: "custom",
-        message: "Number of columns must be even for pairing",
-        path: ["numCols"],
-      });
-      return z.NEVER;
-    }
-
-    const numPairs = numCols / 2;
-    const pairedData: DataRow[] = data.map((row) => {
-      const pairs: DataRow = [];
-      for (let i = 0; i < row.length; i += 2) {
-        pairs.push(ReImPair.parse([row[i], row[i + 1]]));
-      }
-      return pairs;
-    });
-
-    return { header, rows: pairedData, numPairs, numCols };
-  }),
-);
-
-type DataRow = ReImPair[];
-
-const dataSchema = z
-  .string()
-  .pipe(trimAndSplit)
-  .pipe(detectHeader)
-  .pipe(parseDataRows)
-  .pipe(checkUniform)
-  .pipe(splitIntoPairs);
-
-type Data = z.infer<typeof dataSchema>;
-
-function parseContent(content: string) {
-  return dataSchema.parse(content);
+  return { header, rows: pairedData, numPairs, numCols: firstRowLen };
 }
 
-export type { Data, DataRow };
 export { parseContent };
