@@ -1,6 +1,6 @@
 import { fft } from "fft.ts";
 import { fftfreq, fftshift } from "fft.ts/utils";
-import type { DataRow, ReImPair } from "#schemas";
+import type { DataRow, ReImPair } from "./parse-content";
 
 function shiftedPhasorsToDecibelMagnitude(shiftedPhasors: DataRow) {
   return shiftedPhasors.map(

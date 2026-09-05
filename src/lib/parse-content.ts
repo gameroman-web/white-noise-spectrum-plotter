@@ -213,5 +213,9 @@ const dataSchema = z
 
 type Data = z.infer<typeof dataSchema>;
 
+function parseContent(content: string) {
+  return dataSchema.parse(content);
+}
+
 export type { Data, DataRow };
-export { dataSchema };
+export { parseContent };
