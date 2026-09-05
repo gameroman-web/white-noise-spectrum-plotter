@@ -1,9 +1,9 @@
 import { Chart, registerables } from "chart.js/auto";
 import { createSignal } from "solid-js";
 
+import type { Data } from "#lib/parse-content";
+import { parseContent } from "#lib/parse-content";
 import { processData } from "#lib/process-data";
-import type { Data } from "#schemas";
-import { dataSchema } from "#schemas";
 
 Chart.register(...registerables);
 
@@ -147,14 +147,14 @@ function App() {
                 updateStatus("Parsing file data...");
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                  const content = e.target?.result as string;
-                  if (!content) {
+                  const content = e.target?.result;
+                  if (typeof content !== "string") {
                     setError("Failed to read file content.");
                     setStatus("Idle");
                     return;
                   }
                   try {
-                    const parsed = dataSchema.parse(content);
+                    const parsed = parseContent(content);
                     setParsedData(parsed);
                     setStatus("Idle");
                   } catch (err) {

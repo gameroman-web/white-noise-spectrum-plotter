@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
+import type { DataRow } from "#lib/parse-content";
 import { processData } from "#lib/process-data";
-import type { DataRow } from "#schemas";
 
 describe("processData", () => {
   it("should correctly compute and shift magnitudes and frequencies for real DC signals", () => {
