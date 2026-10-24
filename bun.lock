@@ -8,7 +8,7 @@
         "@astrojs/solid-js": "7.0.2",
         "@tailwindcss/vite": "4.3.3",
         "astro": "7.3.3",
-        "chart.js": "4.5.1",
+        "chart.js": "4.6.1",
         "fft.ts": "0.1.2",
         "solid-js": "1.9.17",
         "tailwindcss": "4.3.3",
@@ -489,7 +489,7 @@
 
     "character-entities-legacy": ["character-entities-legacy@3.0.0", "", {}, "sha512-RpPp0asT/6ufRm//AJVwpViZbGM/MkjQFxJccQRHmISF/22NBtsHqAWmL+/pmkPWoIUJdWyeVleTl1wydHATVQ=="],
 
-    "chart.js": ["chart.js@4.5.1", "", { "dependencies": { "@kurkle/color": "^0.3.0" } }, "sha512-GIjfiT9dbmHRiYi6Nl2yFCq7kkwdkp1W/lp2J99rX0yo9tgJGn3lKQATztIjb5tVtevcBtIdICNWqlq5+E8/Pw=="],
+    "chart.js": ["chart.js@4.6.1", "", { "dependencies": { "@kurkle/color": "^0.3.0" } }, "sha512-hJyniucsFmq//EvXYvJ6c6mahPoI3kaxdjVH8awTaJ/fDNWeSqqqArixMJWkWNN6fcYvPU3HneSANFNYtRi61g=="],
 
     "ci-info": ["ci-info@4.4.0", "", {}, "sha512-77PSwercCZU2Fc4sX94eF8k8Pxte6JAwL4/ICZLFjJLqegs7kCuAsqqj/70NQF6TvDpgFjkubQB2FW2ZZddvQg=="],
 
